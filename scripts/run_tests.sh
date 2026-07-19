@@ -91,6 +91,19 @@ echo "▶ pre-compiling bytecode cache"
 "$PYTHON" -m compileall -q -j 0 -- $(git ls-files '*.py') >/dev/null 2>&1 || true
 
 echo "▶ launching test runner"
+# Windows (native, via Git Bash): CPython on Windows ignores HOME —
+# Path.home()/expanduser need USERPROFILE (or HOMEDRIVE+HOMEPATH), ssl and
+# sockets need SystemRoot, and tempfile needs TEMP/TMP.  With env -i
+# stripping them, every test that touches Path.home() dies at collection
+# with "RuntimeError: Could not determine home directory."  None of these
+# carry secrets, so passing them through preserves the hermetic intent
+# (credential vars stay stripped).  All are guarded on being set, so the
+# Linux/macOS environment is byte-identical to before.
+#
+# PYTHONUTF8=1: the runner and per-file subprocesses print ✓/⚠ glyphs;
+# Windows consoles default to a legacy codepage (cp1252) and crash with
+# UnicodeEncodeError.  UTF-8 mode is a no-op on Linux/macOS, where
+# LANG=C.UTF-8 already forces UTF-8.
 exec env -i \
   PATH="$PATH" \
   HOME="$HOME" \
@@ -98,6 +111,13 @@ exec env -i \
   LANG=C.UTF-8 \
   LC_ALL=C.UTF-8 \
   PYTHONHASHSEED=0 \
+  PYTHONUTF8=1 \
+  ${USERPROFILE:+USERPROFILE="$USERPROFILE"} \
+  ${HOMEDRIVE:+HOMEDRIVE="$HOMEDRIVE"} \
+  ${HOMEPATH:+HOMEPATH="$HOMEPATH"} \
+  ${SYSTEMROOT:+SYSTEMROOT="$SYSTEMROOT"} \
+  ${TEMP:+TEMP="$TEMP"} \
+  ${TMP:+TMP="$TMP"} \
   ${HERMES_RUN_SLOW_PET_TESTS:+HERMES_RUN_SLOW_PET_TESTS="$HERMES_RUN_SLOW_PET_TESTS"} \
   ${EXTRA_PYTHONPATH:+PYTHONPATH="$EXTRA_PYTHONPATH"} \
   ${EXTRA_PYTEST_PLUGINS:+PYTEST_PLUGINS="$EXTRA_PYTEST_PLUGINS"} \
