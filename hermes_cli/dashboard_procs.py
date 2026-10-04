@@ -577,7 +577,7 @@ def _kill_pids_posix(pids: list[int], killed: list[int], failed: list[tuple[int,
     # Snapshot identity must still match: a PID recycled during the grace is not ours to signal.
     survivors = [p for p, (_root, start) in descendants.items()
                  if start is not None and get_process_start_time(p) == start]
-    for sig in (_signal.SIGTERM, _signal.SIGKILL):
+    for sig in (_signal.SIGTERM, _signal.SIGKILL):  # windows-footgun: ok — POSIX arm; the win32 dispatch at the end of this module routes win32 to _kill_pids_windows
         for pid in survivors:
             with contextlib.suppress(OSError):
                 os.kill(pid, sig)
